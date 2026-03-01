@@ -95,7 +95,8 @@
                         <tr>
                             <th scope="col" class="px-6 py-3">Alamat Email</th>
                             <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3">Terakhir Diubah</th>
+                            <th scope="col" class="px-6 py-3">Mulai Aktif</th>
+                            <th scope="col" class="px-6 py-3">Tanggal Habis</th>
                             <th scope="col" class="px-6 py-3 text-right">Aksi</th>
                         </tr>
                     </thead>
@@ -123,7 +124,37 @@
         lucide.createIcons();
 
         // State Aplikasi
-        let accounts = JSON.parse(localStorage.getItem('copilotAccountsData')) || [];
+        let accounts = JSON.parse(localStorage.getItem('copilotAccountsData'));
+
+        // Load data default jika localStorage kosong
+        if (!accounts) {
+            const now = new Date().toISOString();
+            const defaultEmails = [
+                "proyeklms177@gmail.com",
+                "animasi.indones14@gmail.com",
+                "mameon.id@gmail.com",
+                "tumbasniki1@gmail.com",
+                "kecamatanjombang001@gmail.com",
+                "planetcreative@gmail.com",
+                "bintangpurwindoardhip@gmail.com",
+                "projecthalal116@gmail.com",
+                "gloryproject69@gmail.com",
+                "newshalal6@gmail.com",
+                "anonymousproject18@gmail.com",
+                "reactlms4@gmail.com"
+            ];
+            
+            accounts = defaultEmails.map((email, index) => ({
+                id: 'init-' + index,
+                email: email,
+                status: 'tersedia',
+                lastUpdated: now,
+                tanggalAktif: null,
+                tanggalHabis: null
+            }));
+            
+            localStorage.setItem('copilotAccountsData', JSON.stringify(accounts));
+        }
 
         // Referensi elemen DOM
         const form = document.getElementById('add-form');
@@ -162,6 +193,32 @@
         function saveAccounts() {
             localStorage.setItem('copilotAccountsData', JSON.stringify(accounts));
             render();
+        }
+
+        // Fungsi Cek Reset Otomatis (1 Bulan)
+        function checkAutoReset() {
+            let hasChanges = false;
+            const now = new Date();
+            
+            accounts.forEach(acc => {
+                if (acc.status === 'habis' && acc.tanggalHabis) {
+                    const resetDate = new Date(acc.tanggalHabis);
+                    resetDate.setMonth(resetDate.getMonth() + 1); // Tambah 1 bulan dari tanggal habis
+                    
+                    // Jika waktu sekarang sudah melewati atau sama dengan tanggal reset
+                    if (now >= resetDate) {
+                        acc.status = 'tersedia';
+                        acc.tanggalAktif = null;
+                        acc.tanggalHabis = null;
+                        acc.lastUpdated = now.toISOString();
+                        hasChanges = true;
+                    }
+                }
+            });
+            
+            if (hasChanges) {
+                localStorage.setItem('copilotAccountsData', JSON.stringify(accounts));
+            }
         }
 
         // Format Tanggal
@@ -206,7 +263,9 @@
                     id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString() + Math.random(),
                     email: email,
                     status: 'tersedia', // Default
-                    lastUpdated: new Date().toISOString()
+                    lastUpdated: new Date().toISOString(),
+                    tanggalAktif: null,
+                    tanggalHabis: null
                 });
                 addedCount++;
             });
@@ -226,8 +285,16 @@
         window.changeStatus = function(id, newStatus) {
             const index = accounts.findIndex(acc => acc.id === id);
             if (index !== -1) {
+                const now = new Date().toISOString();
                 accounts[index].status = newStatus;
-                accounts[index].lastUpdated = new Date().toISOString();
+                accounts[index].lastUpdated = now;
+                
+                if (newStatus === 'aktif') {
+                    accounts[index].tanggalAktif = now;
+                } else if (newStatus === 'habis') {
+                    accounts[index].tanggalHabis = now;
+                }
+                
                 saveAccounts();
             }
         };
@@ -256,6 +323,9 @@
 
         // Render UI
         function render() {
+            // Lakukan pengecekan reset otomatis setiap kali UI di-render/dimuat ulang
+            checkAutoReset();
+
             // Update Statistik
             document.getElementById('stat-total').innerText = accounts.length;
             document.getElementById('stat-tersedia').innerText = accounts.filter(a => a.status === 'tersedia').length;
@@ -325,8 +395,24 @@
                                 ${badgeText}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-xs text-slate-500">
-                            ${formatDate(acc.lastUpdated)}
+                        <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            ${acc.tanggalAktif ? formatDate(acc.tanggalAktif) : '-'}
+                        </td>
+                        <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            ${acc.tanggalHabis ? formatDate(acc.tanggalHabis) : '-'}
+                            ${acc.status === 'habis' && acc.tanggalHabis ? `
+                                <br>
+                                <span class="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100" title="Akan otomatis tersedia kembali pada tanggal ini">
+                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> 
+                                    Reset: ${
+                                        (function(){
+                                            let d = new Date(acc.tanggalHabis);
+                                            d.setMonth(d.getMonth() + 1);
+                                            return formatDate(d.toISOString());
+                                        })()
+                                    }
+                                </span>
+                            ` : ''}
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
