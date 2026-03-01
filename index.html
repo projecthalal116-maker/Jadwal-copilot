@@ -1,62 +1,359 @@
-<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Tryout CPNS Online</title><style>
-body{font-family:'Segoe UI',sans-serif;margin:0;background:#f9fbff;color:#222}
-header{display:flex;justify-content:space-between;align-items:center;background:#2d7be0;color:#fff;padding:10px 20px}
-header h1{margin:0;font-size:18px;font-weight:600}
-.info-box{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:14px}
-.timer{font-size:16px;font-weight:600}
-.container{display:flex;flex-direction:row;height:calc(100vh - 60px)}
-.sidebar{width:180px;overflow-y:auto;background:#e9f2ff;padding:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
-.sidebar button{padding:8px;border:none;border-radius:6px;cursor:pointer;background:#fff;font-size:13px;transition:.2s}
-.sidebar button.active{background:#2d7be0;color:#fff;font-weight:bold}
-.sidebar button.answered{background:#b2d3ff}
-.content{flex:1;padding:20px;overflow-y:auto}
-.question-box{background:#fff;border-radius:8px;padding:20px;box-shadow:0 2px 6px rgba(0,0,0,0.05)}
-.options button{display:block;width:100%;margin:6px 0;padding:10px;border:1px solid #ccc;border-radius:6px;background:#fff;text-align:left;cursor:pointer}
-.options button:hover{background:#f1f8ff}
-.options button.correct{background:#c5e6b3;border-color:#6cc070}
-.options button.wrong{background:#ffbdbd;border-color:#f06262}
-.nav{margin-top:15px;display:flex;justify-content:space-between}
-.nav button{padding:10px 15px;border:none;border-radius:6px;background:#2d7be0;color:#fff;cursor:pointer;font-weight:600}
-.nav button:hover{background:#1d5fb5}
-.result{background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-canvas{max-width:300px;margin:auto;display:block}
-</style></head><body>
-<header>
-<h1>Tryout CPNS Online</h1>
-<div class="info-box">
-<div>Total Soal: <span id="total"></span></div>
-<div>Dijawab: <span id="answered"></span> | Belum: <span id="unanswered"></span></div>
-</div>
-<div class="timer">Waktu: <span id="timer">05:00</span></div>
-</header>
-<div class="container">
-<div class="sidebar" id="numberContainer"></div>
-<div class="content">
-<div id="quiz"></div>
-</div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const soal=[{kategori:"TWK",soal:"Ideologi Pancasila memiliki fungsi sebagai?",opsi:["Dasar negara","Hiasan lambang negara","Peraturan pemerintah","Semboyan nasional"],jawaban:0,pembahasan:"Pancasila berfungsi sebagai dasar negara Indonesia."},
-{kategori:"TIU",soal:"Jika 3x+5=14, maka nilai x adalah?",opsi:["3","4","5","2"],jawaban:0,pembahasan:"3x+5=14 => 3x=9 => x=3"},
-{kategori:"TKP",soal:"Anda melihat rekan kerja melakukan kesalahan kecil, sikap Anda?",opsi:["Menegur dengan baik","Membiarkan saja","Melapor langsung ke atasan","Menertawakannya"],jawaban:0,pembahasan:"Menegur dengan baik menunjukkan sikap profesional dan empati."},
-{kategori:"TIU",soal:"Manakah bentuk yang berbeda?",svg:`<svg width='120'height='30'><circle cx='15'cy='15'r='10'fill='#2d7be0'/><rect x='40'y='5'width='20'height='20'fill='#2d7be0'/><polygon points='80,25 100,5 120,25'fill='#2d7be0'/><circle cx='150'cy='15'r='10'fill='orange'/></svg>`,opsi:["Bentuk ke-1","Bentuk ke-2","Bentuk ke-3","Bentuk ke-4"],jawaban:3,pembahasan:"Bentuk ke-4 berbeda warna (orange)."},
-{kategori:"TIU",soal:"Urutan rotasi yang benar?",svg:`<svg width='120'height='30'><rect x='5'y='5'width='20'height='20'fill='#2d7be0'/><rect x='40'y='5'width='20'height='20'transform='rotate(45 50 15)'fill='#2d7be0'/><rect x='75'y='5'width='20'height='20'transform='rotate(90 85 15)'fill='#2d7be0'/></svg>`,opsi:["0°,45°,90°","90°,0°,45°","45°,90°,0°","0°,90°,45°"],jawaban:0,pembahasan:"Urutan rotasi meningkat 0°,45°,90°."},
-{kategori:"TWK",soal:"UUD 1945 disahkan pada tanggal?",opsi:["17 Agustus 1945","18 Agustus 1945","20 Mei 1945","1 Juni 1945"],jawaban:1,pembahasan:"UUD 1945 disahkan pada 18 Agustus 1945 oleh PPKI."},
-{kategori:"TKP",soal:"Ketika rekan tidak bekerja dengan baik, Anda?",opsi:["Memberi dukungan","Mengecam","Mengabaikan","Menyerah"],jawaban:0,pembahasan:"Memberi dukungan membangun semangat tim."},
-{kategori:"TWK",soal:"Lambang negara Indonesia adalah?",opsi:["Garuda Pancasila","Singa Merah","Burung Elang","Harimau Putih"],jawaban:0,pembahasan:"Lambang negara Indonesia adalah Garuda Pancasila."},
-{kategori:"TIU",soal:"5,10,20,40,... selanjutnya?",opsi:["60","70","80","100"],jawaban:2,pembahasan:"Setiap bilangan dikali 2, jadi 40x2=80."},
-{kategori:"TKP",soal:"Jika Anda gagal dalam ujian, apa yang dilakukan?",opsi:["Evaluasi diri dan belajar lagi","Menyalahkan teman","Putus asa","Marah pada pengawas"],jawaban:0,pembahasan:"Evaluasi diri menunjukkan ketangguhan mental."}];
-let acakSoal=()=>soal.sort(()=>Math.random()-.5);let data=acakSoal(),idx=0,score={TWK:0,TIU:0,TKP:0},answeredArr=Array(data.length).fill(false),timerSec=300,interval;
-function mulaiTimer(){interval=setInterval(()=>{timerSec--;let m=Math.floor(timerSec/60),s=timerSec%60;document.getElementById("timer").textContent=`${m}:${s<10?"0":""}${s}`;if(timerSec<=0){clearInterval(interval);selesai()}},1000);}
-function tampilSoal(i){if(i>=data.length){selesai();return;}
-let q=data[i];let html=`<div class='question-box'><h3>Soal ${i+1} (${q.kategori})</h3>${q.svg?q.svg:`<p>${q.soal}</p>`}<div class='options'>${q.opsi.map((o,ix)=>`<button onclick='jawab(${i},${ix},this)'>${o}</button>`).join("")}</div><div id='pembahasan' style='display:none;margin-top:10px;padding:10px;background:#f1f8ff;border-left:4px solid #2d7be0;'>${q.pembahasan}</div><div class='nav'><button onclick='lewat(${i})'>Lewatkan Soal Ini</button><button onclick='lanjut(${i})'>Simpan & Lanjutkan</button></div></div>`;document.getElementById("quiz").innerHTML=html;updateSidebar();}
-function jawab(i,j,el){if(answeredArr[i])return;answeredArr[i]=true;let btns=document.querySelectorAll(".options button");btns.forEach((b,ix)=>{if(ix===data[i].jawaban)b.classList.add("correct");else if(ix===j)b.classList.add("wrong");b.disabled=true;});if(j===data[i].jawaban)score[data[i].kategori]++;document.getElementById("pembahasan").style.display="block";updateSidebar();}
-function lewat(i){idx++;if(idx>=data.length)selesai();else tampilSoal(idx);}
-function lanjut(i){idx++;if(idx>=data.length)selesai();else tampilSoal(idx);}
-function updateSidebar(){let cont=document.getElementById("numberContainer");cont.innerHTML="";answeredArr.forEach((a,i)=>{let b=document.createElement("button");b.textContent=i+1;b.className=i===idx?"active":a?"answered":"";b.onclick=()=>{idx=i;tampilSoal(i)};cont.appendChild(b);});document.getElementById("total").textContent=data.length;let ans=answeredArr.filter(x=>x).length;document.getElementById("answered").textContent=ans;document.getElementById("unanswered").textContent=data.length-ans;}
-function selesai(){clearInterval(interval);let totalBenar=score.TWK+score.TIU+score.TKP;let twkP=(score.TWK/3)*100,tiuP=(score.TIU/3)*100,tkpP=(score.TKP/4)*100;document.querySelector(".content").innerHTML=`<div class='result'><h2>Hasil Tryout</h2><p>TWK: ${score.TWK} benar (${twkP.toFixed(0)}%)<br>TIU: ${score.TIU} benar (${tiuP.toFixed(0)}%)<br>TKP: ${score.TKP} benar (${tkpP.toFixed(0)}%)<br><b>Total: ${totalBenar} dari ${data.length}</b></p><canvas id='chart'></canvas><button onclick='ulang()' style='margin-top:10px;background:#2d7be0;color:#fff;padding:10px 15px;border:none;border-radius:6px;cursor:pointer;'>Ulangi Tryout</button></div>`;new Chart(document.getElementById("chart"),{type:"pie",data:{labels:["TWK","TIU","TKP"],datasets:[{data:[score.TWK,score.TIU,score.TKP],backgroundColor:["#2d7be0","#5ea3f3","#9dc8ff"]}]}});}
-function ulang(){data=acakSoal();idx=0;score={TWK:0,TIU:0,TKP:0};answeredArr=Array(data.length).fill(false);timerSec=300;clearInterval(interval);mulaiTimer();tampilSoal(0);}
-window.onload=()=>{mulaiTimer();tampilSoal(0);}
-</script></body></html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajer Akun Copilot</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar untuk tampilan yang lebih rapi */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
 
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Header -->
+        <header class="mb-8 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-2">
+                    <i data-lucide="github" class="w-8 h-8"></i>
+                    Manajer Akun Copilot
+                </h1>
+                <p class="text-slate-500 mt-1 text-sm">Lacak status penggunaan email untuk sesi GitHub Copilot Anda.</p>
+            </div>
+            <button onclick="exportData()" class="text-sm bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 py-2 px-4 rounded-lg shadow-sm flex items-center gap-2 transition-colors">
+                <i data-lucide="download" class="w-4 h-4"></i> Export Data
+            </button>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-sm text-slate-500 font-medium">Total Akun</p>
+                <p class="text-2xl font-bold text-slate-800" id="stat-total">0</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-xl shadow-sm border border-green-100">
+                <p class="text-sm text-green-600 font-medium">Tersedia</p>
+                <p class="text-2xl font-bold text-green-700" id="stat-tersedia">0</p>
+            </div>
+            <div class="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100">
+                <p class="text-sm text-blue-600 font-medium">Sedang Aktif</p>
+                <p class="text-2xl font-bold text-blue-700" id="stat-aktif">0</p>
+            </div>
+            <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
+                <p class="text-sm text-red-600 font-medium">Sesi Habis</p>
+                <p class="text-2xl font-bold text-red-700" id="stat-habis">0</p>
+            </div>
+        </div>
+
+        <!-- Add Account Form -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-8">
+            <form id="add-form" class="flex flex-col sm:flex-row gap-3">
+                <div class="flex-1 relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="mail" class="w-5 h-5 text-slate-400"></i>
+                    </div>
+                    <input type="text" id="email-input" class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Masukkan email (bisa lebih dari satu, pisahkan dengan koma)">
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors whitespace-nowrap">
+                    <i data-lucide="plus" class="w-5 h-5"></i> Tambah Akun
+                </button>
+            </form>
+        </div>
+
+        <!-- Filters & List -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="border-b border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
+                <h2 class="text-lg font-semibold text-slate-800">Daftar Akun</h2>
+                <div class="flex gap-2">
+                    <select id="filter-status" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none">
+                        <option value="semua">Semua Status</option>
+                        <option value="tersedia">Tersedia</option>
+                        <option value="aktif">Sedang Aktif</option>
+                        <option value="habis">Sesi Habis</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Alamat Email</th>
+                            <th scope="col" class="px-6 py-3">Status</th>
+                            <th scope="col" class="px-6 py-3">Terakhir Diubah</th>
+                            <th scope="col" class="px-6 py-3 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="account-list" class="divide-y divide-slate-100">
+                        <!-- Item List Generated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden p-8 text-center text-slate-500">
+                <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+                <p>Belum ada akun yang ditambahkan atau tidak ada yang sesuai filter.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 flex flex-col gap-2 z-50"></div>
+
+    <!-- Application Logic -->
+    <script>
+        // Inisialisasi ikon Lucide
+        lucide.createIcons();
+
+        // State Aplikasi
+        let accounts = JSON.parse(localStorage.getItem('copilotAccountsData')) || [];
+
+        // Referensi elemen DOM
+        const form = document.getElementById('add-form');
+        const emailInput = document.getElementById('email-input');
+        const accountList = document.getElementById('account-list');
+        const emptyState = document.getElementById('empty-state');
+        const filterStatus = document.getElementById('filter-status');
+
+        // Fungsi menampilkan Toast (Pesan Notifikasi)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+            let icon = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info';
+
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 fade-in max-w-xs`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5 flex-shrink-0"></i>
+                <span class="text-sm font-medium">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons({ root: toast });
+
+            // Hapus toast setelah 3 detik
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Fungsi Simpan ke Local Storage
+        function saveAccounts() {
+            localStorage.setItem('copilotAccountsData', JSON.stringify(accounts));
+            render();
+        }
+
+        // Format Tanggal
+        function formatDate(dateString) {
+            const options = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+            return new Date(dateString).toLocaleDateString('id-ID', options);
+        }
+
+        // Menyalin ke Clipboard
+        function copyToClipboard(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast('Email berhasil disalin!', 'success');
+        }
+
+        // Tambah Akun Baru
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const rawInput = emailInput.value.trim();
+            if (!rawInput) return;
+
+            // Bisa input banyak dipisah koma atau spasi
+            const emails = rawInput.split(/[, ]+/).map(e => e.trim()).filter(e => e);
+            let addedCount = 0;
+            let duplicateCount = 0;
+
+            emails.forEach(email => {
+                // Validasi format email sederhana
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return; 
+
+                // Cek duplikat
+                if (accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase())) {
+                    duplicateCount++;
+                    return;
+                }
+
+                accounts.push({
+                    id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString() + Math.random(),
+                    email: email,
+                    status: 'tersedia', // Default
+                    lastUpdated: new Date().toISOString()
+                });
+                addedCount++;
+            });
+
+            if (addedCount > 0) {
+                showToast(`${addedCount} akun berhasil ditambahkan!`, 'success');
+                emailInput.value = '';
+                saveAccounts();
+            } else if (duplicateCount > 0) {
+                showToast('Akun sudah ada di dalam daftar.', 'error');
+            } else {
+                showToast('Format email tidak valid.', 'error');
+            }
+        });
+
+        // Ubah Status Akun
+        window.changeStatus = function(id, newStatus) {
+            const index = accounts.findIndex(acc => acc.id === id);
+            if (index !== -1) {
+                accounts[index].status = newStatus;
+                accounts[index].lastUpdated = new Date().toISOString();
+                saveAccounts();
+            }
+        };
+
+        // Hapus Akun
+        window.deleteAccount = function(id) {
+            accounts = accounts.filter(acc => acc.id !== id);
+            showToast('Akun berhasil dihapus', 'info');
+            saveAccounts();
+        };
+
+        // Export data
+        window.exportData = function() {
+            if(accounts.length === 0) {
+                showToast('Tidak ada data untuk diekspor', 'error');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(accounts, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href",     dataStr);
+            downloadAnchorNode.setAttribute("download", "copilot_accounts_backup.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        };
+
+        // Render UI
+        function render() {
+            // Update Statistik
+            document.getElementById('stat-total').innerText = accounts.length;
+            document.getElementById('stat-tersedia').innerText = accounts.filter(a => a.status === 'tersedia').length;
+            document.getElementById('stat-aktif').innerText = accounts.filter(a => a.status === 'aktif').length;
+            document.getElementById('stat-habis').innerText = accounts.filter(a => a.status === 'habis').length;
+
+            // Filter List
+            const currentFilter = filterStatus.value;
+            let filteredAccounts = accounts;
+            
+            if (currentFilter !== 'semua') {
+                filteredAccounts = accounts.filter(a => a.status === currentFilter);
+            }
+
+            // Urutkan: Aktif -> Tersedia -> Habis, lalu urut waktu
+            filteredAccounts.sort((a, b) => {
+                const order = { 'aktif': 1, 'tersedia': 2, 'habis': 3 };
+                if (order[a.status] !== order[b.status]) {
+                    return order[a.status] - order[b.status];
+                }
+                return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+            });
+
+            // Render Table
+            accountList.innerHTML = '';
+            
+            if (filteredAccounts.length === 0) {
+                accountList.parentElement.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            } else {
+                accountList.parentElement.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+
+                filteredAccounts.forEach(acc => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-50 transition-colors group';
+                    
+                    // Style badge berdasarkan status
+                    let badgeClass = '';
+                    let badgeText = '';
+                    if (acc.status === 'tersedia') {
+                        badgeClass = 'bg-green-100 text-green-700 border-green-200';
+                        badgeText = 'Tersedia';
+                    } else if (acc.status === 'aktif') {
+                        badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+                        badgeText = `
+                            <span class="relative flex h-2 w-2 mr-1.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            </span>
+                            Sedang Aktif
+                        `;
+                    } else {
+                        badgeClass = 'bg-red-100 text-red-700 border-red-200';
+                        badgeText = 'Sesi Habis';
+                    }
+
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
+                            ${acc.email}
+                            <button onclick="copyToClipboard('${acc.email}')" class="text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100" title="Salin Email">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-xs text-slate-500">
+                            ${formatDate(acc.lastUpdated)}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <select onchange="changeStatus('${acc.id}', this.value)" class="text-xs bg-white border border-slate-300 rounded p-1 outline-none focus:border-blue-500">
+                                    <option value="tersedia" ${acc.status === 'tersedia' ? 'selected' : ''}>Tersedia</option>
+                                    <option value="aktif" ${acc.status === 'aktif' ? 'selected' : ''}>Pakai (Aktif)</option>
+                                    <option value="habis" ${acc.status === 'habis' ? 'selected' : ''}>Tandai Habis</option>
+                                </select>
+                                <button onclick="deleteAccount('${acc.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    accountList.appendChild(tr);
+                });
+            }
+            
+            lucide.createIcons({ root: accountList });
+        }
+
+        // Event Listener untuk Filter
+        filterStatus.addEventListener('change', render);
+
+        // Render pertama kali
+        render();
+
+    </script>
+</body>
+</html>
