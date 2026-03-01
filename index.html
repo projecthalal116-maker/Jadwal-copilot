@@ -20,6 +20,16 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Memperbaiki tampilan icon kalender bawaan browser */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+            transition: 0.2s;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
@@ -299,6 +309,22 @@
             }
         };
 
+        // Update Tanggal Aktif Secara Manual
+        window.updateTanggalAktif = function(id, dateValue) {
+            const index = accounts.findIndex(acc => acc.id === id);
+            if (index !== -1) {
+                if (dateValue) {
+                    const newDate = new Date(dateValue);
+                    accounts[index].tanggalAktif = newDate.toISOString();
+                } else {
+                    accounts[index].tanggalAktif = null;
+                }
+                accounts[index].lastUpdated = new Date().toISOString();
+                saveAccounts();
+                showToast('Tanggal aktif diperbarui', 'success');
+            }
+        };
+
         // Hapus Akun
         window.deleteAccount = function(id) {
             accounts = accounts.filter(acc => acc.id !== id);
@@ -395,8 +421,13 @@
                                 ${badgeText}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
-                            ${acc.tanggalAktif ? formatDate(acc.tanggalAktif) : '-'}
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="date" 
+                                   title="Ubah Tanggal Aktif Secara Manual"
+                                   onchange="updateTanggalAktif('${acc.id}', this.value)"
+                                   value="${acc.tanggalAktif ? acc.tanggalAktif.substring(0, 10) : ''}"
+                                   class="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-2 py-1 outline-none transition-all cursor-pointer w-[120px]"
+                            >
                         </td>
                         <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
                             ${acc.tanggalHabis ? formatDate(acc.tanggalHabis) : '-'}
