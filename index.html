@@ -107,7 +107,6 @@
                             <th scope="col" class="px-6 py-3">Status</th>
                             <th scope="col" class="px-6 py-3">Mulai Aktif</th>
                             <th scope="col" class="px-6 py-3">Tanggal Habis</th>
-                            <th scope="col" class="px-6 py-3 text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="account-list" class="divide-y divide-slate-100">
@@ -211,17 +210,34 @@
             const now = new Date();
             
             accounts.forEach(acc => {
-                if (acc.status === 'habis' && acc.tanggalHabis) {
+                if (acc.tanggalHabis) {
+                    const habisDate = new Date(acc.tanggalHabis);
                     const resetDate = new Date(acc.tanggalHabis);
                     resetDate.setMonth(resetDate.getMonth() + 1); // Tambah 1 bulan dari tanggal habis
                     
-                    // Jika waktu sekarang sudah melewati atau sama dengan tanggal reset
                     if (now >= resetDate) {
-                        acc.status = 'tersedia';
-                        acc.tanggalAktif = null;
-                        acc.tanggalHabis = null;
-                        acc.lastUpdated = now.toISOString();
-                        hasChanges = true;
+                        // Jika waktu sekarang sudah melewati atau sama dengan tanggal reset (1 bulan)
+                        if (acc.status !== 'tersedia') {
+                            acc.status = 'tersedia';
+                            acc.tanggalAktif = null;
+                            acc.tanggalHabis = null;
+                            acc.lastUpdated = now.toISOString();
+                            hasChanges = true;
+                        }
+                    } else if (now >= habisDate) {
+                        // Jika sudah mencapai/melewati tanggal habis tapi belum 1 bulan
+                        if (acc.status !== 'habis') {
+                            acc.status = 'habis';
+                            acc.lastUpdated = now.toISOString();
+                            hasChanges = true;
+                        }
+                    } else {
+                        // Jika tanggal habis masih di masa depan
+                        if (acc.status !== 'aktif') {
+                            acc.status = 'aktif';
+                            acc.lastUpdated = now.toISOString();
+                            hasChanges = true;
+                        }
                     }
                 }
             });
@@ -300,9 +316,13 @@
                 accounts[index].lastUpdated = now;
                 
                 if (newStatus === 'aktif') {
-                    accounts[index].tanggalAktif = now;
+                    if (!accounts[index].tanggalAktif) accounts[index].tanggalAktif = now;
+                    accounts[index].tanggalHabis = null; // Hapus tgl habis agar status tidak tertimpa logika otomatis
                 } else if (newStatus === 'habis') {
-                    accounts[index].tanggalHabis = now;
+                    if (!accounts[index].tanggalHabis) accounts[index].tanggalHabis = now;
+                } else if (newStatus === 'tersedia') {
+                    accounts[index].tanggalAktif = null;
+                    accounts[index].tanggalHabis = null;
                 }
                 
                 saveAccounts();
@@ -322,6 +342,22 @@
                 accounts[index].lastUpdated = new Date().toISOString();
                 saveAccounts();
                 showToast('Tanggal aktif diperbarui', 'success');
+            }
+        };
+
+        // Update Tanggal Habis Secara Manual
+        window.updateTanggalHabis = function(id, dateValue) {
+            const index = accounts.findIndex(acc => acc.id === id);
+            if (index !== -1) {
+                if (dateValue) {
+                    const newDate = new Date(dateValue);
+                    accounts[index].tanggalHabis = newDate.toISOString();
+                } else {
+                    accounts[index].tanggalHabis = null;
+                }
+                accounts[index].lastUpdated = new Date().toISOString();
+                saveAccounts();
+                showToast('Tanggal habis diperbarui', 'success');
             }
         };
 
@@ -389,37 +425,42 @@
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-slate-50 transition-colors group';
                     
-                    // Style badge berdasarkan status
+                    // Style dropdown berdasarkan status
                     let badgeClass = '';
-                    let badgeText = '';
                     if (acc.status === 'tersedia') {
-                        badgeClass = 'bg-green-100 text-green-700 border-green-200';
-                        badgeText = 'Tersedia';
+                        badgeClass = 'bg-green-50 text-green-700 border-green-200 focus:border-green-500';
                     } else if (acc.status === 'aktif') {
-                        badgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
-                        badgeText = `
-                            <span class="relative flex h-2 w-2 mr-1.5">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                            </span>
-                            Sedang Aktif
-                        `;
+                        badgeClass = 'bg-blue-50 text-blue-700 border-blue-200 focus:border-blue-500';
                     } else {
-                        badgeClass = 'bg-red-100 text-red-700 border-red-200';
-                        badgeText = 'Sesi Habis';
+                        badgeClass = 'bg-red-50 text-red-700 border-red-200 focus:border-red-500';
                     }
 
                     tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
+                        <td class="px-6 py-4 font-medium text-slate-900 flex items-center gap-2">
                             ${acc.email}
-                            <button onclick="copyToClipboard('${acc.email}')" class="text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100" title="Salin Email">
-                                <i data-lucide="copy" class="w-4 h-4"></i>
-                            </button>
+                            <div class="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                <button onclick="copyToClipboard('${acc.email}')" class="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Salin Email">
+                                    <i data-lucide="copy" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteAccount('${acc.id}')" class="p-1 text-slate-400 hover:text-red-600 transition-colors" title="Hapus Akun">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeClass}">
-                                ${badgeText}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                ${acc.status === 'aktif' ? `
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                    </span>
+                                ` : ''}
+                                <select onchange="changeStatus('${acc.id}', this.value)" class="text-xs font-semibold rounded-full border px-2.5 py-1 outline-none cursor-pointer transition-colors ${badgeClass}">
+                                    <option value="tersedia" ${acc.status === 'tersedia' ? 'selected' : ''}>Tersedia</option>
+                                    <option value="aktif" ${acc.status === 'aktif' ? 'selected' : ''}>Sedang Aktif</option>
+                                    <option value="habis" ${acc.status === 'habis' ? 'selected' : ''}>Sesi Habis</option>
+                                </select>
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <input type="date" 
@@ -429,8 +470,13 @@
                                    class="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-2 py-1 outline-none transition-all cursor-pointer w-[120px]"
                             >
                         </td>
-                        <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
-                            ${acc.tanggalHabis ? formatDate(acc.tanggalHabis) : '-'}
+                        <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">
+                            <input type="date" 
+                                   title="Ubah Tanggal Habis Secara Manual"
+                                   onchange="updateTanggalHabis('${acc.id}', this.value)"
+                                   value="${acc.tanggalHabis ? acc.tanggalHabis.substring(0, 10) : ''}"
+                                   class="text-xs text-slate-600 bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:bg-white rounded px-2 py-1 outline-none transition-all cursor-pointer w-[120px]"
+                            >
                             ${acc.status === 'habis' && acc.tanggalHabis ? `
                                 <br>
                                 <span class="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100" title="Akan otomatis tersedia kembali pada tanggal ini">
@@ -444,18 +490,6 @@
                                     }
                                 </span>
                             ` : ''}
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                <select onchange="changeStatus('${acc.id}', this.value)" class="text-xs bg-white border border-slate-300 rounded p-1 outline-none focus:border-blue-500">
-                                    <option value="tersedia" ${acc.status === 'tersedia' ? 'selected' : ''}>Tersedia</option>
-                                    <option value="aktif" ${acc.status === 'aktif' ? 'selected' : ''}>Pakai (Aktif)</option>
-                                    <option value="habis" ${acc.status === 'habis' ? 'selected' : ''}>Tandai Habis</option>
-                                </select>
-                                <button onclick="deleteAccount('${acc.id}')" class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
-                            </div>
                         </td>
                     `;
                     accountList.appendChild(tr);
